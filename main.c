@@ -103,6 +103,7 @@ struct objective_point *choose_objective_point(struct grid *grid, struct objecti
 
 bool check_serv(char buf[BUFSIZE], char *server_answer);
 
+void check_malloc(void *ptr);
 
 
 /**
@@ -219,6 +220,7 @@ void update_velocity_towards_objective(struct player *p, struct objective_point 
  */
 struct objective_point *choose_objective_point(struct grid *grid, struct objective_area *objective) {
     struct objective_point *optimal_point = malloc(sizeof(struct objective_point));
+    check_malloc(optimal_point);
     int max_value = INT_MIN;
 
     // Parcourir chaque case dans la zone de l'objectif
@@ -263,6 +265,7 @@ struct game *init_game(char buf[BUFSIZE], bool DEBUG) {
     struct player *player = player_create(buf, DEBUG);
 
     struct game *game = malloc(sizeof(struct game));
+    check_malloc(game);
     game->grid = grid;
     game->player = player;
     return game;
@@ -288,6 +291,7 @@ void end_game(struct game *self, struct objective_area *objective) {
  */
 struct grid *grid_create(char buf[256], bool DEBUG) {
     struct grid *grid = malloc(sizeof(struct grid));
+    check_malloc(grid);
 
     if(DEBUG) debug("grid size ?");
     // get the size of the grid
@@ -364,6 +368,7 @@ struct player *player_create(char buf[BUFSIZE], bool DEBUG) {
     fgets(buf, BUFSIZE, stdin);
     int y = atoi(buf);
     struct player *player = malloc(sizeof(struct player));
+    check_malloc(player);
     player->x = x;
     player->y = y;
     player->vx = 0;
@@ -404,6 +409,7 @@ struct objective_area* objective_area_create(char buf[BUFSIZE], bool DEBUG) {
     fgets(buf, BUFSIZE, stdin);
     int h = atoi(buf);
     struct objective_area * objective = malloc(sizeof(struct objective_area));
+    check_malloc(objective);
     objective->x = x;
     objective->y = y;
     objective->w = w;
@@ -422,4 +428,11 @@ void objective_area_destroy(struct objective_area *self) {
     self->w = 0;
     self->h = 0;
     free(self);
+}
+
+void check_malloc(void *ptr) {
+    if(ptr == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
 }

@@ -17,7 +17,6 @@
 void debug(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    vfprintf(stderr, "DEBUG: ", args);
     vfprintf(stderr, format, args);
     vfprintf(stderr, "\n", args);
 }
@@ -94,7 +93,9 @@ void grid_set_value(struct grid *self, size_t r, size_t c, int value);
 struct player *player_create(char buf[BUFSIZE], bool DEBUG);
 void player_destroy(struct player *self);
 
-void update_velocity_towards_objective(struct player *p, struct objective_point *obj);
+void update_velocity_towards_objective(struct player *p, struct objective_point *obj, struct grid *grid);
+void dumb_race(struct player *p, struct objective_point *obj);
+void smart_race(struct player *p, struct objective_point *obj, struct grid *grid);
 
 struct objective_area *objective_area_create(char buf[BUFSIZE], bool DEBUG);
 void objective_area_destroy(struct objective_area *self);
@@ -120,8 +121,8 @@ void check_malloc(void *ptr);
  */
 int main(int argc, char **argv) {
     bool DEBUG = false;
-    if(argc == 2) {
-        if(strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0) {
+    if(true /*|| argc == 2*/) {
+        if(true /*|| strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0*/) {
             DEBUG = true;
             debug("Debug mode activated");
         }
@@ -133,21 +134,21 @@ int main(int argc, char **argv) {
 
     struct game *game = init_game(buf, DEBUG);
 
+
     // get the initial objective area
     struct objective_area *objective_area = objective_area_create(buf, DEBUG);
     struct objective_point *real_objective = choose_objective_point(game->grid, objective_area);
 
     while (true) {
-        update_velocity_towards_objective(game->player, real_objective);
-
+        update_velocity_towards_objective(game->player, real_objective, game->grid);
 
         // Compute new position based on current velocity
         int new_x = game->player->x + game->player->vx;
         int new_y = game->player->y + game->player->vy;
 
-
         // Ensure the new position is within the grid bounds
         if (new_x < 0 || new_x >= game->grid->size || new_y < 0 || new_y >= game->grid->size) {
+            printf("%i\n%i\n", -1, -1);
             fprintf(stderr, "Invalid move: out of bounds\n");
             break;
         }
@@ -175,13 +176,10 @@ int main(int argc, char **argv) {
             objective_area_destroy(objective_area);
             objective_area = objective_area_create(buf, DEBUG);
             real_objective = choose_objective_point(game->grid, objective_area);
-        } else if (!check_serv(buf, "OK\n")) {
+        }else if (!check_serv(buf, "OK\n")) {
             fprintf(stderr, "Unexpected server response: %s\n", buf);
             break;
         }
-
-        // Here, implement the logic to decide the next move and update the player's velocity
-
     }
 
     end_game(game, objective_area);
@@ -193,20 +191,35 @@ int main(int argc, char **argv) {
  * @param p Pointeur vers le joueur.
  * @param obj Pointeur vers le point objectif.
  */
-void update_velocity_towards_objective(struct player *p, struct objective_point *obj) {
+void update_velocity_towards_objective(struct player *p, struct objective_point *obj, struct grid *grid) {
+    dumb_race(p, obj);
+}
+
+
+void smart_race(struct player *p, struct objective_point *objective, struct grid *grid) {
+    // TODO Implement a more complex and more efficient logic to move towards the objective point
+}
+
+
+/**
+ * @brief Implémente une logique simple pour se déplacer vers un point objectif.
+ * @param p Pointeur vers le joueur.
+ * @param obj Pointeur vers le point objectif.
+ */
+void dumb_race(struct player *p, struct objective_point *obj) {
     // Simple logic to move towards the objective point
     if (p->x < obj->x) {
-        p->vx = 1;  // Move right
+        if(p->vx != 1) p->vx++;
     } else if (p->x > obj->x) {
-        p->vx = -1; // Move left
+        if(p->vx != -1) p->vx--;
     } else {
         p->vx = 0;  // Don't move horizontally
     }
 
     if (p->y < obj->y) {
-        p->vy = 1;  // Move down
+        if(p->vy != 1) p->vy++;
     } else if (p->y > obj->y) {
-        p->vy = -1; // Move up
+        if(p->vy != -1) p->vy--;
     } else {
         p->vy = 0;  // Don't move vertically
     }
@@ -399,15 +412,16 @@ struct objective_area* objective_area_create(char buf[BUFSIZE], bool DEBUG) {
     if(DEBUG) debug("objective_area position\n x: ");
     fgets(buf, BUFSIZE, stdin);
     int x = atoi(buf);
-    if(DEBUG) debug(" y: ");
+    if(DEBUG) debug("%i\n y: ", x);
     fgets(buf, BUFSIZE, stdin);
     int y = atoi(buf);
-    if(DEBUG) debug("objective_area size\n w: ");
+    if(DEBUG) debug("%i\n objective_area size\n w: ", y);
     fgets(buf, BUFSIZE, stdin);
     int w = atoi(buf);
-    if(DEBUG) debug(" h: ");
+    if(DEBUG) debug("%i\n h: ", w);
     fgets(buf, BUFSIZE, stdin);
     int h = atoi(buf);
+    if(DEBUG) debug("%i\n", h);
     struct objective_area * objective = malloc(sizeof(struct objective_area));
     check_malloc(objective);
     objective->x = x;

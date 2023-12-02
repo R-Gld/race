@@ -18,4 +18,4 @@ clean:
 	rm -f *.o main
 
 run:
-	./main -d
+	./race-server ./race-mid ./race-dumb ./main

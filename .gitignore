@@ -4,3 +4,4 @@ CMakeLists.txt
 main
 main.o
 /.idea/
+error*

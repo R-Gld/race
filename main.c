@@ -83,7 +83,7 @@ struct game {
 
 
 struct game *init_game(char buf[BUFSIZE], bool DEBUG);
-void end_game(struct game *self, struct objective_area *objective);
+void end_game(struct game *self, struct objective_area *objective, struct objective_point *point);
 
 struct grid *grid_create(char buf[BUFSIZE], bool DEBUG);
 int grid_access_value(struct grid *self, size_t r, size_t c);
@@ -98,7 +98,7 @@ void dumb_race(struct player *p, struct objective_point *obj);
 void smart_race(struct player *p, struct objective_point *obj, struct grid *grid);
 
 struct objective_area *objective_area_create(char buf[BUFSIZE], bool DEBUG);
-void objective_area_destroy(struct objective_area *self);
+void objective_destroy(struct objective_area *self, struct objective_point *point);
 
 struct objective_point *choose_objective_point(struct grid *grid, struct objective_area *objective);
 
@@ -142,20 +142,16 @@ int main(int argc, char **argv) {
     while (true) {
         update_velocity_towards_objective(game->player, real_objective, game->grid);
 
-        // Compute new position based on current velocity
-        int new_x = game->player->x + game->player->vx;
-        int new_y = game->player->y + game->player->vy;
+        game->player->x += game->player->vx;
+        game->player->y += game->player->vy;
 
         // Ensure the new position is within the grid bounds
-        if (new_x < 0 || new_x >= game->grid->size || new_y < 0 || new_y >= game->grid->size) {
+        if (game->player->x < 0 || game->player->x >= game->grid->size
+        || game->player->y < 0 || game->player->y >= game->grid->size) {
             printf("%i\n%i\n", -1, -1);
             fprintf(stderr, "Invalid move: out of bounds\n");
             break;
         }
-
-        // Update the player's position
-        game->player->x = new_x;
-        game->player->y = new_y;
 
         printf("%i\n%i\n", game->player->x, game->player->y);
 
@@ -172,8 +168,7 @@ int main(int argc, char **argv) {
             printf("Game finished successfully\n");
             break;
         } else if (check_serv(buf, "CHECKPOINT\n")) {
-            // Handle the new objective
-            objective_area_destroy(objective_area);
+            objective_destroy(objective_area, real_objective);
             objective_area = objective_area_create(buf, DEBUG);
             real_objective = choose_objective_point(game->grid, objective_area);
         }else if (!check_serv(buf, "OK\n")) {
@@ -182,7 +177,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    end_game(game, objective_area);
+    end_game(game, objective_area, real_objective);
     return EXIT_SUCCESS;
 }
 
@@ -196,9 +191,7 @@ void update_velocity_towards_objective(struct player *p, struct objective_point 
 }
 
 
-void smart_race(struct player *p, struct objective_point *objective, struct grid *grid) {
-    // TODO Implement a more complex and more efficient logic to move towards the objective point
-}
+void smart_race(struct player *p, struct objective_point *objective, struct grid *grid) {}
 
 
 /**
@@ -289,10 +282,10 @@ struct game *init_game(char buf[BUFSIZE], bool DEBUG) {
  * @param self Pointeur vers la structure de jeu à nettoyer.
  * @param objective Pointeur vers la zone d'objectif à libérer.
  */
-void end_game(struct game *self, struct objective_area *objective) {
+void end_game(struct game *self, struct objective_area *objective, struct objective_point *point) {
     grid_destroy(self->grid);
     player_destroy(self->player);
-    objective_area_destroy(objective);
+    objective_destroy(objective, point);
     free(self);
 }
 
@@ -435,13 +428,16 @@ struct objective_area* objective_area_create(char buf[BUFSIZE], bool DEBUG) {
  * @brief Libère la mémoire allouée pour la zone d'objectif.
  * @param self Pointeur vers la zone d'objectif à détruire.
  */
-void objective_area_destroy(struct objective_area *self) {
+void objective_destroy(struct objective_area *self, struct objective_point *point) {
     assert(self != NULL);
     self->x = 0;
     self->y = 0;
     self->w = 0;
     self->h = 0;
     free(self);
+    point->x = 0;
+    point->y = 0;
+    free(point);
 }
 
 void check_malloc(void *ptr) {

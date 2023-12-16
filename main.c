@@ -93,9 +93,9 @@ void grid_set_value(struct grid *self, size_t r, size_t c, int value);
 struct player *player_create(char buf[BUFSIZE], bool DEBUG);
 void player_destroy(struct player *self);
 
-void update_velocity_towards_objective(struct player *p, struct objective_point *obj, struct grid *grid);
+void update_velocity_towards_objective(struct player *p, struct objective_point *obj, struct objective_point *last);
 void dumb_race(struct player *p, struct objective_point *obj);
-void smart_race(struct player *p, struct objective_point *obj, struct grid *grid);
+void smart_race(struct player *p, struct objective_point *obj, struct objective_point *last);
 
 struct objective_area *objective_area_create(char buf[BUFSIZE], bool DEBUG);
 void objective_destroy(struct objective_area *self, struct objective_point *point);
@@ -139,8 +139,13 @@ int main(int argc, char **argv) {
     struct objective_area *objective_area = objective_area_create(buf, DEBUG);
     struct objective_point *real_objective = choose_objective_point(game->grid, objective_area);
 
+    struct objective_point *last_objective = malloc(sizeof(struct objective_point));
+    check_malloc(last_objective);
+    last_objective->x = game->player->x;
+    last_objective->y = game->player->y;
+
     while (true) {
-        update_velocity_towards_objective(game->player, real_objective, game->grid);
+        update_velocity_towards_objective(game->player, real_objective, last_objective);
 
         game->player->x += game->player->vx;
         game->player->y += game->player->vy;
@@ -148,9 +153,7 @@ int main(int argc, char **argv) {
         // Ensure the new position is within the grid bounds
         if (game->player->x < 0 || game->player->x >= game->grid->size
         || game->player->y < 0 || game->player->y >= game->grid->size) {
-            printf("%i\n%i\n", -1, -1);
             fprintf(stderr, "Invalid move: out of bounds\n");
-            break;
         }
 
         printf("%i\n%i\n", game->player->x, game->player->y);
@@ -168,6 +171,8 @@ int main(int argc, char **argv) {
             printf("Game finished successfully\n");
             break;
         } else if (check_serv(buf, "CHECKPOINT\n")) {
+            last_objective->x = real_objective->x;
+            last_objective->y = real_objective->y;
             objective_destroy(objective_area, real_objective);
             objective_area = objective_area_create(buf, DEBUG);
             real_objective = choose_objective_point(game->grid, objective_area);
@@ -186,12 +191,76 @@ int main(int argc, char **argv) {
  * @param p Pointeur vers le joueur.
  * @param obj Pointeur vers le point objectif.
  */
-void update_velocity_towards_objective(struct player *p, struct objective_point *obj, struct grid *grid) {
-    dumb_race(p, obj);
+void update_velocity_towards_objective(struct player *p, struct objective_point *obj, struct objective_point *last) {
+    smart_race(p, obj, last);
+}
+
+#include <math.h>
+/**
+ * @brief Calcule la distance entre deux points sur la grille.
+ * @param x1 Position X du premier point.
+ * @param y1 Position Y du premier point.
+ * @param x2 Position X du second point.
+ * @param y2 Position Y du second point.
+ * @return Distance euclidienne entre les deux points.
+ */
+double distance(int x1, int y1, int x2, int y2) {
+    return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+}
+
+/**
+ * @brief Calcule la distance entre un joueur et un point objectif.
+ * @param p
+ * @param obj
+ * @return
+ */
+double distance_point(struct player *p, struct objective_point *obj) {
+    return distance(p->x, p->y, obj->x, obj->y);
+}
+
+void accelerate(struct player *p, struct objective_point *obj) {
+    if (p->x < obj->x) {
+        p->vx++;
+    } else if (p->x > obj->x) {
+        p->vx--;
+    }
+    if (p->y < obj->y) {
+        p->vy++;
+    } else if (p->y > obj->y) {
+        p->vy--;
+    }
+}
+
+void decelerate(struct player *p, struct objective_point *obj) {
+    if (p->x < obj->x) {
+        p->vx--;
+    } else if (p->x > obj->x) {
+        p->vx++;
+    }
+    if (p->y < obj->y) {
+        p->vy--;
+    } else if (p->y > obj->y) {
+        p->vy++;
+    }
+}
+
+/**
+ * @brief Implémente une logique d'accélération puis de freinage pour se déplacer vers un point objectif.
+ * @param p Pointeur vers le joueur.
+ * @param obj Pointeur vers le point objectif.
+ * @param grid Pointeur vers la grille.
+ */
+void smart_race(struct player *p, struct objective_point *obj, struct objective_point *last) {
+    double distance_to_objective = distance_point(p, obj);
+    double distance_to_last = distance_point(p, last);
+    if(distance_to_last < distance_to_objective) {
+        accelerate(p, obj);
+    } else {
+        decelerate(p, obj);
+    }
 }
 
 
-void smart_race(struct player *p, struct objective_point *objective, struct grid *grid) {}
 
 
 /**

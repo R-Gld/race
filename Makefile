@@ -12,10 +12,13 @@ main: $(OBJ)
 
 .PHONY: clean
 
-all: main run
+all: main run-solo
 
 clean:
 	rm -f *.o main
+
+run-solo:
+	./race-server ./main
 
 run:
 	./race-server ./race-mid ./race-dumb ./main
